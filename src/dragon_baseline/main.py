@@ -413,7 +413,7 @@ class DragonBaseline(NLPAlgorithm):
         tokenizer.model_max_length = self.max_seq_length  # set the maximum sequence length, if not already set
 
         # load the model
-        task_adapter_names = ["ner_task", "classification_task", "regression_task"]
+        task_adapter_names = ["single_label_regression", "multi_label_regression", "single_label_binary_classification", "multi_label_binary_classification", "single_label_multi_class_classification", "multi_label_multi_class_classification", "named_entity_recognition", "multi_label_named_entity_recognition"]
 
         model = DragonAdapterFusionModel(
             model_name = self.model_name,
@@ -435,7 +435,7 @@ class DragonBaseline(NLPAlgorithm):
             parser = get_multi_label_classification_argument_parser()
             trainer = run_multi_label_classification
         else:
-            trainer_name  = "classification"
+            trainer_name = "classification"
             parser = get_classification_argument_parser()
             trainer = run_classification
 

@@ -1,15 +1,7 @@
-# dragon_adapter_fusion.py
-
 from transformers import AutoAdapterModel, AutoTokenizer
 
 class DragonAdapterFusionModel:
     def __init__(self, model_name: str, adapter_names: list, adapter_config: str = "pfeiffer", device="cuda"):
-        """
-        model_name: HuggingFace model name
-        adapter_names: List of task adapter names (to fuse)
-        adapter_config: Adapter config type ("pfeiffer", "houlsby", etc.)
-        device: "cuda" or "cpu"
-        """
         self.model_name = model_name
         self.adapter_names = adapter_names
         self.adapter_config = adapter_config
@@ -21,17 +13,15 @@ class DragonAdapterFusionModel:
 
     def load_or_add_adapters(self):
         for adapter_name in self.adapter_names:
-            if adapter_name not in self.model.config.adapters.adapter_list(AdapterType.text_task):
-                # Try loading a pretrained adapter if available
-                try:
-                    self.model.load_adapter(
-                        adapter_name, config=self.adapter_config, with_head=True, load_as=adapter_name
-                    )
-                    print(f"Loaded adapter {adapter_name}.")
-                except:
-                    print(f"No pretrained adapter found for {adapter_name}. Adding a fresh one.")
-                    self.model.add_adapter(adapter_name, config=self.adapter_config)
-                    self.model.add_classification_head(adapter_name)
+            try:
+                self.model.load_adapter(
+                    adapter_name, config=self.adapter_config, with_head=True, load_as=adapter_name
+                )
+                print(f"Loaded adapter {adapter_name}.")
+            except:
+                print(f"No pretrained adapter found for {adapter_name}. Adding a fresh one.")
+                self.model.add_adapter(adapter_name, config=self.adapter_config)
+                self.model.add_classification_head(adapter_name)
 
     def setup_fusion(self, fusion_name="fusion"):
         """
@@ -51,3 +41,10 @@ class DragonAdapterFusionModel:
     def save_model(self, output_dir):
         self.model.save_pretrained(output_dir)
         self.tokenizer.save_pretrained(output_dir)
+
+    def set_task_adapter(self, task_name):
+        """Activate a single task-specific adapter."""
+        if task_name not in self.adapter_names:
+            raise ValueError(f"Adapter for task {task_name} not loaded.")
+        self.model.set_active_adapters(task_name)
+        print(f"Activated adapter for task: {task_name}")
