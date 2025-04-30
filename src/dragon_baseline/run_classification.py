@@ -286,7 +286,7 @@ def get_cli_arguments():
 
     return model_args, data_args, training_args
 
-def run_classification(model_args: DataClass, data_args: DataClass, training_args: DataClass):
+def run_classification(model_args: DataClass, data_args: DataClass, training_args: DataClass, model=None):
 
     # Sending telemetry. Tracking the example usage helps us better allocate resources to maintain them. The
     # information sent is the one passed as arguments along with your Python/PyTorch versions.
@@ -512,16 +512,17 @@ def run_classification(model_args: DataClass, data_args: DataClass, training_arg
         trust_remote_code=model_args.trust_remote_code,
         truncation_side=data_args.truncation_side,
     )
-    model = AutoModelForSequenceClassification.from_pretrained(
-        model_args.model_name_or_path,
-        from_tf=bool(".ckpt" in model_args.model_name_or_path),
-        config=config,
-        cache_dir=model_args.cache_dir,
-        revision=model_args.model_revision,
-        token=model_args.token,
-        trust_remote_code=model_args.trust_remote_code,
-        ignore_mismatched_sizes=model_args.ignore_mismatched_sizes,
-    )
+    if model is None:
+        model = AutoModelForSequenceClassification.from_pretrained(
+            model_args.model_name_or_path,
+            from_tf=bool(".ckpt" in model_args.model_name_or_path),
+            config=config,
+            cache_dir=model_args.cache_dir,
+            revision=model_args.model_revision,
+            token=model_args.token,
+            trust_remote_code=model_args.trust_remote_code,
+            ignore_mismatched_sizes=model_args.ignore_mismatched_sizes,
+        )
 
     # Padding strategy
     if data_args.pad_to_max_length:

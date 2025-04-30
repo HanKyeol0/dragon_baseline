@@ -27,6 +27,7 @@ from transformers import (AutoModelForSequenceClassification,
                           AutoModelForTokenClassification, AutoTokenizer,
                           TokenClassificationPipeline)
 from transformers.modeling_outputs import SequenceClassifierOutput
+from dragon_adapter_fusion import DragonAdapterFusionModel
 
 from dragon_baseline.architectures.clf_multi_head import \
     AutoModelForMultiHeadSequenceClassification
@@ -411,7 +412,20 @@ class DragonBaseline(NLPAlgorithm):
         tokenizer = AutoTokenizer.from_pretrained(self.model_name, truncation_side=self.task.recommended_truncation_side)
         tokenizer.model_max_length = self.max_seq_length  # set the maximum sequence length, if not already set
 
-        # train the model
+        # load the model
+        task_adapter_names = ["ner_task", "classification_task", "regression_task"]
+
+        model = DragonAdapterFusionModel(
+            model_name = self.model_name,
+            adapter_names = task_adapter_names,
+            adapter_config = "pfeiffer",
+            device = self.device,
+        )
+        model.load_or_add_adapters()
+        model.setup_fusion()
+        model.train_fusion_only()
+
+        # set a trainer that suits the task type
         if self.task.target.problem_type in [ProblemType.SINGLE_LABEL_NER, ProblemType.MULTI_LABEL_NER]:
             trainer_name = "ner"
             parser = get_ner_argument_parser()
@@ -469,7 +483,7 @@ class DragonBaseline(NLPAlgorithm):
             config["fp16"] = True
 
         model_args, data_args, training_args = parser.parse_dict(config)
-        trainer(model_args, data_args, training_args)
+        trainer(model, model_args, data_args, training_args)
 
     def predict_ner(self, *, df: pd.DataFrame) -> pd.DataFrame:
         """Predict the labels for the test data.
