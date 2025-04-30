@@ -246,7 +246,7 @@ def get_cli_arguments():
 
     return model_args, data_args, training_args
 
-def run_ner(model_args: DataClass, data_args: DataClass, training_args: DataClass, model=None):
+def run_ner(model_args: DataClass, data_args: DataClass, training_args: DataClass, model=None, task_type=None):
     # Sending telemetry. Tracking the example usage helps us better allocate resources to maintain them. The
     # information sent is the one passed as arguments along with your Python/PyTorch versions.
     send_example_telemetry("run_ner", model_args, data_args)
@@ -429,7 +429,9 @@ def run_ner(model_args: DataClass, data_args: DataClass, training_args: DataClas
             trust_remote_code=model_args.trust_remote_code,
             ignore_mismatched_sizes=model_args.ignore_mismatched_sizes,
         )
-    
+
+    # Activate an adapter corresponding to the task type
+    model.set_active_adapters(task_type)
 
     # Tokenizer check: this script requires a fast tokenizer.
     if not isinstance(tokenizer, PreTrainedTokenizerFast):

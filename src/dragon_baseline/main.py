@@ -413,8 +413,15 @@ class DragonBaseline(NLPAlgorithm):
         tokenizer.model_max_length = self.max_seq_length  # set the maximum sequence length, if not already set
 
         # load the model
-        task_adapter_names = ["single_label_regression", "multi_label_regression", "single_label_binary_classification", "multi_label_binary_classification", "single_label_multi_class_classification", "multi_label_multi_class_classification", "named_entity_recognition", "multi_label_named_entity_recognition"]
-
+        task_adapter_names = [ProblemType.SINGLE_LABEL_REGRESSION,
+                              ProblemType.MULTI_LABEL_REGRESSION,
+                              ProblemType.SINGLE_LABEL_BINARY_CLASSIFICATION,
+                              ProblemType.MULTI_LABEL_BINARY_CLASSIFICATION,
+                              ProblemType.SINGLE_LABEL_MULTI_CLASS_CLASSIFICATION,
+                              ProblemType.MULTI_LABEL_MULTI_CLASS_CLASSIFICATION,
+                              ProblemType.SINGLE_LABEL_NER,
+                              ProblemType.MULTI_LABEL_NER]
+        
         model = DragonAdapterFusionModel(
             model_name = self.model_name,
             adapter_names = task_adapter_names,
@@ -483,7 +490,7 @@ class DragonBaseline(NLPAlgorithm):
             config["fp16"] = True
 
         model_args, data_args, training_args = parser.parse_dict(config)
-        trainer(model, model_args, data_args, training_args)
+        trainer(model_args, data_args, training_args, model, self.task.target.problem_type)
 
     def predict_ner(self, *, df: pd.DataFrame) -> pd.DataFrame:
         """Predict the labels for the test data.
