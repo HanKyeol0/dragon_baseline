@@ -23,7 +23,7 @@ from scipy.special import expit, softmax
 from sklearn.base import BaseEstimator, TransformerMixin
 from sklearn.preprocessing import StandardScaler
 from tqdm import tqdm
-from transformers import (AutoModelForSequenceClassification,
+from transformers import (AutoConfig, AutoModelForSequenceClassification,
                           AutoModelForTokenClassification, AutoTokenizer,
                           TokenClassificationPipeline)
 from transformers.modeling_outputs import SequenceClassifierOutput
@@ -421,16 +421,6 @@ class DragonBaseline(NLPAlgorithm):
                               ProblemType.MULTI_LABEL_MULTI_CLASS_CLASSIFICATION,
                               ProblemType.SINGLE_LABEL_NER,
                               ProblemType.MULTI_LABEL_NER]
-        
-        model = DragonAdapterFusionModel(
-            model_name = self.model_name,
-            adapter_names = task_adapter_names,
-            adapter_config = "pfeiffer",
-            device = self.device,
-        )
-        model.load_or_add_adapters()
-        model.setup_fusion()
-        model.train_fusion_only()
 
         # set a trainer that suits the task type
         if self.task.target.problem_type in [ProblemType.SINGLE_LABEL_NER, ProblemType.MULTI_LABEL_NER]:
@@ -490,7 +480,26 @@ class DragonBaseline(NLPAlgorithm):
             config["fp16"] = True
 
         model_args, data_args, training_args = parser.parse_dict(config)
-        trainer(model_args, data_args, training_args, model)
+
+        config = AutoConfig.from_pretrained(
+            model_args.config_name if model_args.config_name else model_args.model_name_or_path,
+            cache_dir=model_args.cache_dir,
+            revision=model_args.model_revision,
+            token=model_args.token,
+            trust_remote_code=model_args.trust_remote_code,
+        )
+
+        model = DragonAdapterFusionModel(
+            model_name = self.model_name,
+            adapter_names = task_adapter_names,
+            adapter_config = "pfeiffer",
+            device = self.device,
+        )
+        model.load_or_add_adapters()
+        model.setup_fusion()
+        model.train_fusion_only()
+
+        trainer(model_args, data_args, training_args, config, model)
 
     def predict_ner(self, *, df: pd.DataFrame) -> pd.DataFrame:
         """Predict the labels for the test data.

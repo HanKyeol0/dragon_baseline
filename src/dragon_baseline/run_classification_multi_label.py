@@ -291,7 +291,7 @@ def get_cli_arguments():
 
     return model_args, data_args, training_args
 
-def run_multi_label_classification(model_args: DataClass, data_args: DataClass, training_args: DataClass, model=None):
+def run_multi_label_classification(model_args: DataClass, data_args: DataClass, training_args: DataClass, config, model=None):
 
     # Sending telemetry. Tracking the example usage helps us better allocate resources to maintain them. The
     # information sent is the one passed as arguments along with your Python/PyTorch versions.
@@ -487,13 +487,7 @@ def run_multi_label_classification(model_args: DataClass, data_args: DataClass, 
     # Load pretrained model and tokenizer
     # In distributed training, the .from_pretrained methods guarantee that only one local process can concurrently
     # download model & vocab.
-    config = AutoConfig.from_pretrained(
-        model_args.config_name if model_args.config_name else model_args.model_name_or_path,
-        cache_dir=model_args.cache_dir,
-        revision=model_args.model_revision,
-        token=model_args.token,
-        trust_remote_code=model_args.trust_remote_code,
-    )
+
     tokenizer = AutoTokenizer.from_pretrained(
         model_args.tokenizer_name if model_args.tokenizer_name else model_args.model_name_or_path,
         cache_dir=model_args.cache_dir,
@@ -503,7 +497,13 @@ def run_multi_label_classification(model_args: DataClass, data_args: DataClass, 
         trust_remote_code=model_args.trust_remote_code,
         truncation_side=data_args.truncation_side,
     )
+    model.set_active_adapters(data_args.problem_type)
     if data_args.problem_type == "multi_label_multi_class_classification":
+        model.add_task_specific_head(
+            data_args.problem_type,
+            num_targets=len(label_names),
+            num_labels=num_classes_per_label,
+        )
         model_config = AutoModelForMultiHeadSequenceClassification.config_class(
             pretrained_model_name_or_path=model_args.model_name_or_path,
             num_classes_per_label=num_classes_per_label,
@@ -516,17 +516,10 @@ def run_multi_label_classification(model_args: DataClass, data_args: DataClass, 
         )
         model = AutoModelForMultiHeadSequenceClassification(model_config)
     elif data_args.problem_type == "multi_label_regression":
-        model_config = AutoModelForMultiHeadSequenceRegression.config_class(
-            pretrained_model_name_or_path=model_args.model_name_or_path,
-            num_classes_per_label=num_labels,
-            from_tf=bool(".ckpt" in model_args.model_name_or_path),
-            config=config,
-            cache_dir=model_args.cache_dir,
-            revision=model_args.model_revision,
-            token=model_args.token,
-            trust_remote_code=model_args.trust_remote_code,
+        model.add_task_specific_head(
+            problem_type = data_args.problem_type,
+            num_labels=num_labels,
         )
-        model = AutoModelForMultiHeadSequenceRegression(model_config)
     else:
         raise ValueError(f"Unrecognized problem type {data_args.problem_type}")
 

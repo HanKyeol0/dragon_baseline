@@ -30,7 +30,7 @@ import evaluate
 import numpy as np
 import transformers
 from datasets import Value, load_dataset
-from transformers import (AutoConfig, AutoModelForSequenceClassification,
+from transformers import (AutoModelForSequenceClassification,
                           AutoTokenizer, DataCollatorWithPadding,
                           EvalPrediction, HfArgumentParser, Trainer,
                           TrainingArguments, default_data_collator, set_seed)
@@ -286,7 +286,7 @@ def get_cli_arguments():
 
     return model_args, data_args, training_args
 
-def run_classification(model_args: DataClass, data_args: DataClass, training_args: DataClass, model=None):
+def run_classification(model_args: DataClass, data_args: DataClass, training_args: DataClass, config, model=None):
 
     # Sending telemetry. Tracking the example usage helps us better allocate resources to maintain them. The
     # information sent is the one passed as arguments along with your Python/PyTorch versions.
@@ -483,13 +483,6 @@ def run_classification(model_args: DataClass, data_args: DataClass, training_arg
     # Load pretrained model and tokenizer
     # In distributed training, the .from_pretrained methods guarantee that only one local process can concurrently
     # download model & vocab.
-    config = AutoConfig.from_pretrained(
-        model_args.config_name if model_args.config_name else model_args.model_name_or_path,
-        cache_dir=model_args.cache_dir,
-        revision=model_args.model_revision,
-        token=model_args.token,
-        trust_remote_code=model_args.trust_remote_code,
-    )
 
     if is_regression:
         config.problem_type = "regression"
@@ -512,6 +505,11 @@ def run_classification(model_args: DataClass, data_args: DataClass, training_arg
     )
     # Activate an adapter corresponding to the task type
     model.set_active_adapters(data_args.problem_type)
+    model.add_task_specific_head(
+        problem_type=data_args.problem_type,
+        num_targets=None,
+        num_labels=num_labels,
+    )
     if model is None:
         model = AutoModelForSequenceClassification.from_pretrained(
             model_args.model_name_or_path,
