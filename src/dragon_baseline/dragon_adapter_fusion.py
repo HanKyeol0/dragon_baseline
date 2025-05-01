@@ -1,4 +1,19 @@
 from transformers import AutoAdapterModel, AutoTokenizer
+import torch.nn as nn
+from transformers.adapters.heads import PredictionHead
+
+class MultiOutputHead(PredictionHead):
+    def __init__(self, config, input_size: int, output_size: int, dropout: float = 0.1):
+        super().__init__()
+        self.dense = nn.Linear(input_size, input_size)
+        self.dropout = nn.Dropout(dropout)
+        self.out_proj = nn.Linear(input_size, output_size)
+
+    def forward(self, features, **kwargs):
+        x = self.dense(features)
+        x = nn.ReLU()(x)
+        x = self.dropout(x)
+        return self.out_proj(x)
 
 class DragonAdapterFusionModel:
     def __init__(self, model_name: str, adapter_names: list, adapter_config: str = "pfeiffer", device="cuda"):
@@ -23,28 +38,28 @@ class DragonAdapterFusionModel:
                 self.model.add_adapter(adapter_name, config=self.adapter_config)
                 self.model.add_classification_head(adapter_name)
     
-    def add_task_specific_head(self, task_name: str, num_targets: int, problem_type: str, num_labels = None):
+    def add_task_specific_head(self, num_targets: int, problem_type: str, num_labels = None):
         num_layers = 1
         if problem_type == "single_label_regression":
-            self.model.add_classification_head(task_name, num_labels=1, regression=True, layers=num_layers)
+            self.model.add_classification_head(problem_type, num_labels=1, regression=True, layers=num_layers)
         elif problem_type == "multi_label_regression":
             for i in range(num_targets):
-                self.model.add_classification_head(f"{task_name}_{i}", num_labels=num_labels, regression=True, layers=num_layers)
+                self.model.add_classification_head(f"{problem_type}_{i}", num_labels=num_labels, regression=True, layers=num_layers)
         elif problem_type == "single_label_binary_classification":
-            self.model.add_classification_head(task_name, num_labels=2, layers=num_layers)
+            self.model.add_classification_head(problem_type, num_labels=2, layers=num_layers)
         elif problem_type == "multi_label_binary_classification":
             for i in range(num_targets):
-                self.model.add_classification_head(f"{task_name}_{i}", num_labels=2, layers=num_layers),
+                self.model.add_classification_head(f"{problem_type}_{i}", num_labels=2, layers=num_layers),
         elif problem_type == "single_label_multi_class_classification":
-            self.model.add_classification_head(task_name, num_labels=3, layers=num_layers)
+            self.model.add_classification_head(problem_type, num_labels=3, layers=num_layers)
         elif problem_type == "multi_label_multi_class_classification":
             for i in range(num_targets):
-                self.model.add_classification_head(f"{task_name}_{i}", num_labels=num_labels, layers=num_layers)
+                self.model.add_classification_head(f"{problem_type}_{i}", num_labels=num_labels, layers=num_layers)
         elif problem_type == "named_entity_recognition":
-            self.model.add_token_classification_head(task_name, num_labels=num_labels, layers=num_layers)
+            self.model.add_token_classification_head(problem_type, num_labels=num_labels, layers=num_layers)
         elif problem_type == "multi_label_named_entity_recognition":
             # some tokens can have multiple labels
-            self.model.add_token_classification_head(task_name, num_labels=num_labels, layers=num_layers)
+            self.model.add_token_classification_head(problem_type, num_labels=num_labels, layers=num_layers)
 
 
     def setup_fusion(self, fusion_name="fusion"):

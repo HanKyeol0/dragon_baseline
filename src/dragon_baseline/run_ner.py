@@ -387,8 +387,6 @@ def run_ner(model_args: DataClass, data_args: DataClass, training_args: DataClas
     # download model & vocab.
     config = AutoConfig.from_pretrained(
         model_args.config_name if model_args.config_name else model_args.model_name_or_path,
-        num_labels=num_labels,
-        finetuning_task=data_args.task_name,
         cache_dir=model_args.cache_dir,
         revision=model_args.model_revision,
         token=model_args.token,
@@ -420,6 +418,11 @@ def run_ner(model_args: DataClass, data_args: DataClass, training_args: DataClas
 
     # Activate an adapter corresponding to the task type
     model.set_active_adapters(data_args.problem_type)
+    model.add_task_specific_head(
+        problem_type=data_args.problem_type,
+        num_targets=None,
+        num_labels=num_labels,
+    )
     if model is None:
         model = AutoModelForTokenClassification.from_pretrained(
             model_args.model_name_or_path,

@@ -485,8 +485,6 @@ def run_classification(model_args: DataClass, data_args: DataClass, training_arg
     # download model & vocab.
     config = AutoConfig.from_pretrained(
         model_args.config_name if model_args.config_name else model_args.model_name_or_path,
-        num_labels=num_labels,
-        finetuning_task="text-classification",
         cache_dir=model_args.cache_dir,
         revision=model_args.model_revision,
         token=model_args.token,
