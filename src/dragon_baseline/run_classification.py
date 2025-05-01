@@ -286,7 +286,7 @@ def get_cli_arguments():
 
     return model_args, data_args, training_args
 
-def run_classification(model_args: DataClass, data_args: DataClass, training_args: DataClass, model=None, task_type=None):
+def run_classification(model_args: DataClass, data_args: DataClass, training_args: DataClass, model=None):
 
     # Sending telemetry. Tracking the example usage helps us better allocate resources to maintain them. The
     # information sent is the one passed as arguments along with your Python/PyTorch versions.
@@ -512,6 +512,8 @@ def run_classification(model_args: DataClass, data_args: DataClass, training_arg
         trust_remote_code=model_args.trust_remote_code,
         truncation_side=data_args.truncation_side,
     )
+    # Activate an adapter corresponding to the task type
+    model.set_active_adapters(data_args.problem_type)
     if model is None:
         model = AutoModelForSequenceClassification.from_pretrained(
             model_args.model_name_or_path,

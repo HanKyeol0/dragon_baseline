@@ -490,7 +490,7 @@ class DragonBaseline(NLPAlgorithm):
             config["fp16"] = True
 
         model_args, data_args, training_args = parser.parse_dict(config)
-        trainer(model_args, data_args, training_args, model, self.task.target.problem_type)
+        trainer(model_args, data_args, training_args, model)
 
     def predict_ner(self, *, df: pd.DataFrame) -> pd.DataFrame:
         """Predict the labels for the test data.

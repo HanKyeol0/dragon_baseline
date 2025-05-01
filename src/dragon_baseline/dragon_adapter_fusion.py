@@ -22,6 +22,26 @@ class DragonAdapterFusionModel:
                 print(f"No pretrained adapter found for {adapter_name}. Adding a fresh one.")
                 self.model.add_adapter(adapter_name, config=self.adapter_config)
                 self.model.add_classification_head(adapter_name)
+    
+    def add_task_specific_head(self, task_name: str, num_targets: int, problem_type: str):
+        num_layers = 1
+        if problem_type == "single_label_regression":
+            self.model.add_classification_head(task_name, num_labels=1, regression=True, layers=num_layers)
+        elif problem_type == "multi_label_regression":
+            for i in range(num_targets):
+                self.model.add_classification_head(f"{task_name}_{i}", num_labels=1, regression=True, layers=num_layers)
+        elif problem_type == "single_label_binary_classification":
+            self.model.add_classification_head(task_name, num_labels=2, layers=num_layers)
+        elif problem_type == "multi_label_binary_classification":
+            for i in range(num_targets):
+                self.model.add_classification_head(f"{task_name}_{i}", num_labels=2, layers=num_layers),
+        elif problem_type == "single_label_multi_class_classification":
+            self.model.add_classification_head(task_name, num_labels=3, layers=num_layers)
+        elif problem_type == "multi_label_multi_class_classification":
+            for i in range(num_targets):
+                self.model.add_classification_head(f"{task_name}_{i}", num_labels=2, layers=num_layers)
+        elif problem_type == "named_entity_recognition":
+            self.model.add_classification_head()
 
     def setup_fusion(self, fusion_name="fusion"):
         """
