@@ -1,6 +1,8 @@
-from transformers import AutoAdapterModel, AutoTokenizer
+from transformers import AutoTokenizer
+from adapters import AutoAdapterModel, PredictionHead
 import torch.nn as nn
-from transformers.adapters.heads import PredictionHead
+# from transformers.adapters.heads import PredictionHead
+# is this importable..? Tried installation many times but couldn't solve import error.
 
 class MultiOutputHead(PredictionHead):
     def __init__(self, config, input_size: int, output_size: int, dropout: float = 0.1):
@@ -16,14 +18,23 @@ class MultiOutputHead(PredictionHead):
         return self.out_proj(x)
 
 class DragonAdapterFusionModel:
-    def __init__(self, model_name: str, adapter_names: list, adapter_config: str = "pfeiffer", device="cuda"):
-        self.model_name = model_name
+    def __init__(self, model_args, model_config, adapter_names: list, adapter_config: str = "pfeiffer", device="cuda"):
+        self.model_name = model_args.model_name_or_path,
+        self.model_config = model_config
         self.adapter_names = adapter_names
         self.adapter_config = adapter_config
         self.device = device
 
-        self.model = AutoAdapterModel.from_pretrained(self.model_name)
         self.tokenizer = AutoTokenizer.from_pretrained(self.model_name)
+        self.model = AutoAdapterModel.from_pretrained(
+            self.model_name,
+            config=self.model_config,
+            cache_dir=model_args.cache_dir,
+            revision=model_args.model_revision,
+            token=model_args.token,
+            trust_remote_code=model_args.trust_remote_code,
+            ignore_mismatched_sizes=model_args.ignore_mismatched_sizes,
+        )
         self.model.to(self.device)
 
     def load_or_add_adapters(self):
@@ -38,7 +49,7 @@ class DragonAdapterFusionModel:
                 self.model.add_adapter(adapter_name, config=self.adapter_config)
                 self.model.add_classification_head(adapter_name)
     
-    def add_task_specific_head(self, num_targets: int, problem_type: str, num_labels = None):
+    def add_task_specific_head(self, problem_type: str, num_targets = None, num_labels = None):
         num_layers = 1
         if problem_type == "single_label_regression":
             self.model.add_classification_head(problem_type, num_labels=1, regression=True, layers=num_layers)

@@ -481,7 +481,7 @@ class DragonBaseline(NLPAlgorithm):
 
         model_args, data_args, training_args = parser.parse_dict(config)
 
-        config = AutoConfig.from_pretrained(
+        model_config = AutoConfig.from_pretrained(
             model_args.config_name if model_args.config_name else model_args.model_name_or_path,
             cache_dir=model_args.cache_dir,
             revision=model_args.model_revision,
@@ -490,7 +490,8 @@ class DragonBaseline(NLPAlgorithm):
         )
 
         model = DragonAdapterFusionModel(
-            model_name = self.model_name,
+            model_args = model_args,
+            model_config = model_config,
             adapter_names = task_adapter_names,
             adapter_config = "pfeiffer",
             device = self.device,
