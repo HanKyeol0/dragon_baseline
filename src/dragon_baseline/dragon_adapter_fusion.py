@@ -28,6 +28,7 @@ class DragonAdapterFusionModel:
         self.tokenizer = AutoTokenizer.from_pretrained(self.model_name)
         self.model = AutoAdapterModel.from_pretrained(
             self.model_name,
+            from_tf=bool(".ckpt" in model_args.model_name_or_path),
             config=self.model_config,
             cache_dir=model_args.cache_dir,
             revision=model_args.model_revision,
