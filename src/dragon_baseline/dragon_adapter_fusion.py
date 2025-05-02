@@ -33,7 +33,6 @@ class DragonAdapterFusionModel:
             revision=model_args.model_revision,
             token=model_args.token,
             trust_remote_code=model_args.trust_remote_code,
-            ignore_mismatched_sizes=model_args.ignore_mismatched_sizes,
         )
         self.model.to(self.device)
 

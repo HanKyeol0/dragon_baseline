@@ -27,7 +27,7 @@ from transformers import (AutoConfig, AutoModelForSequenceClassification,
                           AutoModelForTokenClassification, AutoTokenizer,
                           TokenClassificationPipeline)
 from transformers.modeling_outputs import SequenceClassifierOutput
-from dragon_adapter_fusion import DragonAdapterFusionModel
+from .dragon_adapter_fusion import DragonAdapterFusionModel
 
 from dragon_baseline.architectures.clf_multi_head import \
     AutoModelForMultiHeadSequenceClassification
