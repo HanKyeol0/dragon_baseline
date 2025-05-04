@@ -498,31 +498,27 @@ def run_multi_label_classification(model_args: DataClass, data_args: DataClass, 
         trust_remote_code=model_args.trust_remote_code,
         truncation_side=data_args.truncation_side,
     )
-    model.set_active_adapters(data_args.problem_type)
+    
     if data_args.problem_type == "multi_label_multi_class_classification":
-        model.add_task_specific_head(
-            data_args.problem_type,
-            num_targets=len(label_names),
-            num_labels=num_classes_per_label,
-        )
-        model_config = AutoModelForMultiHeadSequenceClassification.config_class(
-            pretrained_model_name_or_path=model_args.model_name_or_path,
-            num_classes_per_label=num_classes_per_label,
-            from_tf=bool(".ckpt" in model_args.model_name_or_path),
-            config=config,
-            cache_dir=model_args.cache_dir,
-            revision=model_args.model_revision,
-            token=model_args.token,
-            trust_remote_code=model_args.trust_remote_code,
-        )
-        model = AutoModelForMultiHeadSequenceClassification(model_config)
-    elif data_args.problem_type == "multi_label_regression":
-        model.add_task_specific_head(
-            problem_type = data_args.problem_type,
+        model.add_type_specific_head(
+            problem_type=data_args.problem_type,
             num_labels=num_labels,
+            layers=1,
+        )
+    elif data_args.problem_type == "multi_label_regression":
+        model.add_type_specific_head(
+            problem_type=data_args.problem_type,
+            num_labels=num_labels,  
+            regression=True,
+            layers=1,
         )
     else:
         raise ValueError(f"Unrecognized problem type {data_args.problem_type}")
+    
+    # Activate an adapter corresponding to the task type
+    model.set_active_adapters(data_args.problem_type)
+    # Activate the task-specific head
+    model.set_active_adapters(f"{data_args.problem_type}_head")
 
     # Padding strategy
     if data_args.pad_to_max_length:

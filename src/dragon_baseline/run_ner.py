@@ -409,13 +409,18 @@ def run_ner(model_args: DataClass, data_args: DataClass, training_args: DataClas
             truncation_side=data_args.truncation_side,
         )
 
+    # add a type-specific head
+    model.add_type_specific_head(
+        problem_type=data_args.problem_type,
+        num_labels=num_labels,
+        ner=True,
+        layers=1,
+    )
     # Activate an adapter corresponding to the task type
     model.set_active_adapters(data_args.problem_type)
-    model.add_task_specific_head(
-        problem_type=data_args.problem_type,
-        num_targets=None,
-        num_labels=num_labels,
-    )
+    # Activate the task-specific head
+    model.set_active_adapters(f"{data_args.problem_type}_head")
+    
     if model is None:
         model = AutoModelForTokenClassification.from_pretrained(
             model_args.model_name_or_path,
