@@ -189,12 +189,14 @@ class NLPAlgorithm:
         self.task_details_path = self._input_path / "nlp-task-configuration.json"
         self.test_predictions_path = self._output_path / "nlp-predictions-dataset.json"
 
-    def process(self):
+    def train_process(self):
         self.load()
         self.validate()
         self.analyze()
         self.preprocess()
         self.train()
+    
+    def predict_process(self):
         predictions = self.predict(df=self.df_test)
         self.save(predictions)
         self.verify_predictions()

@@ -40,6 +40,7 @@ from dragon_baseline.run_classification_multi_label import (
     get_multi_label_classification_argument_parser,
     run_multi_label_classification)
 from dragon_baseline.run_ner import get_ner_argument_parser, run_ner
+from adapters.composition import Fuse
 
 __all__ = [
     # expose the algorithm classes
@@ -219,6 +220,15 @@ class DragonBaseline(NLPAlgorithm):
 
         # keep track of the common prefix of the reports, to remove it
         self.common_prefix = None
+
+        self.task_names = [ProblemType.SINGLE_LABEL_REGRESSION,
+                        ProblemType.MULTI_LABEL_REGRESSION,
+                        ProblemType.SINGLE_LABEL_BINARY_CLASSIFICATION,
+                        ProblemType.MULTI_LABEL_BINARY_CLASSIFICATION,
+                        ProblemType.SINGLE_LABEL_MULTI_CLASS_CLASSIFICATION,
+                        ProblemType.MULTI_LABEL_MULTI_CLASS_CLASSIFICATION,
+                        ProblemType.SINGLE_LABEL_NER,
+                        ProblemType.MULTI_LABEL_NER]
 
     @staticmethod
     def longest_common_prefix(strs: List[str]) -> str:
@@ -412,16 +422,6 @@ class DragonBaseline(NLPAlgorithm):
         tokenizer = AutoTokenizer.from_pretrained(self.model_name, truncation_side=self.task.recommended_truncation_side)
         tokenizer.model_max_length = self.max_seq_length  # set the maximum sequence length, if not already set
 
-        # load the model
-        task_adapter_names = [ProblemType.SINGLE_LABEL_REGRESSION,
-                              ProblemType.MULTI_LABEL_REGRESSION,
-                              ProblemType.SINGLE_LABEL_BINARY_CLASSIFICATION,
-                              ProblemType.MULTI_LABEL_BINARY_CLASSIFICATION,
-                              ProblemType.SINGLE_LABEL_MULTI_CLASS_CLASSIFICATION,
-                              ProblemType.MULTI_LABEL_MULTI_CLASS_CLASSIFICATION,
-                              ProblemType.SINGLE_LABEL_NER,
-                              ProblemType.MULTI_LABEL_NER]
-
         # set a trainer that suits the task type
         if self.task.target.problem_type in [ProblemType.SINGLE_LABEL_NER, ProblemType.MULTI_LABEL_NER]:
             trainer_name = "ner"
@@ -489,18 +489,26 @@ class DragonBaseline(NLPAlgorithm):
             trust_remote_code=model_args.trust_remote_code,
         )
 
-        model = DragonAdapterFusionModel(
+        self.model = DragonAdapterFusionModel(
             model_args = model_args,
             model_config = model_config,
-            adapter_names = task_adapter_names,
+            adapter_names = self.task_names,
             adapter_config = "pfeiffer",
             device = self.device,
         )
-        model.load_or_add_adapters()
-        model.setup_fusion()
-        model.train_fusion_only()
+        self.model.load_or_add_adapters()
+        self.model.setup_fusion()
+        self.model.train_fusion_only()
 
-        trainer(model_args, data_args, training_args, config, model)
+        trainer(model_args, data_args, training_args, config, self.model)
+
+        self.model.save_adapters(self.model_save_dir, )
+
+    def train_fusion(self):
+        for task in self.task_names:
+            self.model.load_adapters(task)
+        adapter_setup = Fuse(tuple(self.task_names))
+        self.model.add_adapter_fusion(adapter_setup)
 
     def predict_ner(self, *, df: pd.DataFrame) -> pd.DataFrame:
         """Predict the labels for the test data.
@@ -694,7 +702,7 @@ class DragonBaseline(NLPAlgorithm):
 
 
 if __name__ == "__main__":
-    # Note: to debug (outside of Docker), you can set the input and output paths.
+    # 각 adapter, head들 training 먼저 하고
     for job_name in [
         "Task101_Example_sl_bin_clf-fold0",
         "Task102_Example_sl_mc_clf-fold0",
@@ -710,4 +718,25 @@ if __name__ == "__main__":
             input_path=Path(f"test-input/{job_name}"),
             output_path=Path(f"test-output/{job_name}"),
             workdir=Path(f"test-workdir/{job_name}"),
-        ).process()
+        ).train_process()
+    
+    # trained adapter들에 대해 fusion layer 학습 (adapter들은 freeze, fusion layer만 학습됨)
+    DragonBaseline().train_fusion()
+
+    # 다시 각 task들에 대해 prediction 수행
+    for job_name in [
+        "Task101_Example_sl_bin_clf-fold0",
+        "Task102_Example_sl_mc_clf-fold0",
+        "Task103_Example_mednli-fold0",
+        "Task104_Example_ml_bin_clf-fold0",
+        "Task105_Example_ml_mc_clf-fold0",
+        "Task106_Example_sl_reg-fold0",
+        "Task107_Example_ml_reg-fold0",
+        "Task108_Example_sl_ner-fold0",
+        "Task109_Example_ml_ner-fold0",
+    ]:
+        DragonBaseline(
+            input_path=Path(f"test-input/{job_name}"),
+            output_path=Path(f"test-output/{job_name}"),
+            workdir=Path(f"test-workdir/{job_name}"),
+        ).predict_process()

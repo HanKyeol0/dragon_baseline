@@ -217,3 +217,5 @@ xxhash==3.5.0
     #   evaluate
 yarl==1.18.3
     # via aiohttp
+adapters
+adapter-transformers
