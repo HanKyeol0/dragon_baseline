@@ -458,6 +458,7 @@ def run_multi_label_classification(model_args: DataClass, data_args: DataClass, 
     # Infer the number of labels and label mapping from the dataset
     label_names = [lbl for lbl in raw_datasets["train"].features if lbl.startswith("label")]
     label_names.sort()  # Let's sort it for determinism
+    num_outputs = len(label_names)
     if data_args.problem_type == "multi_label_regression":
         num_labels = len(label_names)
     elif data_args.problem_type == "multi_label_multi_class_classification":
