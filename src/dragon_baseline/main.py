@@ -194,6 +194,7 @@ class DragonBaseline(NLPAlgorithm):
         """
 
         # default training settings
+        self.model = None
         self.model_name = model_name
         self.per_device_train_batch_size = 4
         self.gradient_accumulation_steps = 2
@@ -231,6 +232,8 @@ class DragonBaseline(NLPAlgorithm):
         self.nlp_dataset_val_preprocessed_path = Path(workdir / "nlp-dataset-val-preprocessed.json")
         self.nlp_dataset_test_preprocessed_path = Path(workdir / "nlp-dataset-test-preprocessed.json")
         self.model_save_dir = Path(workdir / "checkpoints")
+        self.adapter_save_dir = Path(workdir / "adapters")
+        self.head_save_dir = Path(workdir / "heads")
 
     @staticmethod
     def longest_common_prefix(strs: List[str]) -> str:
@@ -490,25 +493,25 @@ class DragonBaseline(NLPAlgorithm):
             token=model_args.token,
             trust_remote_code=model_args.trust_remote_code,
         )
-
-        self.model = DragonAdapterFusionModel(
-            model_args = model_args,
-            model_config = model_config,
-            adapter_names = self.task_names,
-            adapter_config = "pfeiffer",
-            device = self.device,
-        )
-        self.model.load_or_add_adapters()
-        self.model.setup_fusion()
-        self.model.train_fusion_only()
+        
+        if self.model == None:
+            self.model = DragonAdapterFusionModel(
+                model_args = model_args,
+                model_config = model_config,
+                adapter_names = self.task_names,
+                adapter_config = "pfeiffer",
+                device = self.device,
+            )
+            self.model.load_or_add_adapters()
 
         trainer(model_args, data_args, training_args, config, self.model)
 
-        self.model.save_adapters(self.model_save_dir, )
+        self.model.save_adapter(self.adapter_save_dir, data_args.problem_type)
+        self.model.save_head(self.head_save_dir, f"{data_args.problem_type}_head")
 
     def train_fusion(self):
-        for task in self.task_names:
-            self.model.load_adapters(task)
+        for task in self.task_names: # 불필요한
+            self.model.load_adapters(task) # 부분일 수 있음
         adapter_setup = Fuse(tuple(self.task_names))
         self.model.add_adapter_fusion(adapter_setup)
 
