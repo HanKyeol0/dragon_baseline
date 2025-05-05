@@ -182,7 +182,7 @@ def balance_negative_samples(df: pd.DataFrame, label_name: str, seed: int) -> pd
 
 
 class DragonBaseline(NLPAlgorithm):
-    def __init__(self, input_path: Union[Path, str] = Path("/input"), output_path: Union[Path, str] = Path("/output"), workdir: Union[Path, str] = Path("/opt/app"), model_name: Union[str, Path] = "distilbert-base-multilingual-cased", **kwargs):
+    def __init__(self, model_name: Union[str, Path] = "distilbert-base-multilingual-cased", **kwargs):
         """
         Baseline implementation for the DRAGON Challenge (https://dragon.grand-challenge.org/).
         This baseline uses the HuggingFace Transformers library (https://huggingface.co/transformers/).
@@ -192,11 +192,6 @@ class DragonBaseline(NLPAlgorithm):
         - `train`: train the model
         - `predict`: predict the labels for the test data
         """
-        input_path = Path(input_path)
-        output_path = Path(output_path)
-        workdir = Path(workdir)
-
-        super().__init__(input_path=input_path, output_path=output_path, **kwargs)
 
         # default training settings
         self.model_name = model_name
@@ -212,12 +207,6 @@ class DragonBaseline(NLPAlgorithm):
         self.fp16 = (True if self.device.type == "cuda" else False)
         self.create_strided_training_examples = True
 
-        # paths for saving the preprocessed data and model checkpoints
-        self.nlp_dataset_train_preprocessed_path = Path(workdir / "nlp-dataset-train-preprocessed.json")
-        self.nlp_dataset_val_preprocessed_path = Path(workdir / "nlp-dataset-val-preprocessed.json")
-        self.nlp_dataset_test_preprocessed_path = Path(workdir / "nlp-dataset-test-preprocessed.json")
-        self.model_save_dir = Path(workdir / "checkpoints")
-
         # keep track of the common prefix of the reports, to remove it
         self.common_prefix = None
 
@@ -229,6 +218,19 @@ class DragonBaseline(NLPAlgorithm):
                         ProblemType.MULTI_LABEL_MULTI_CLASS_CLASSIFICATION,
                         ProblemType.SINGLE_LABEL_NER,
                         ProblemType.MULTI_LABEL_NER]
+    
+    def init_super_and_set_workdir(self, input_path: Union[Path, str] = Path("/input"), output_path: Union[Path, str] = Path("/output"), workdir: Union[Path, str] = Path("/opt/app")):
+        input_path = Path(input_path)
+        output_path = Path(output_path)
+        workdir = Path(workdir)
+
+        super().__init__(input_path=input_path, output_path=output_path)
+
+        # paths for saving the preprocessed data and model checkpoints
+        self.nlp_dataset_train_preprocessed_path = Path(workdir / "nlp-dataset-train-preprocessed.json")
+        self.nlp_dataset_val_preprocessed_path = Path(workdir / "nlp-dataset-val-preprocessed.json")
+        self.nlp_dataset_test_preprocessed_path = Path(workdir / "nlp-dataset-test-preprocessed.json")
+        self.model_save_dir = Path(workdir / "checkpoints")
 
     @staticmethod
     def longest_common_prefix(strs: List[str]) -> str:
@@ -702,6 +704,7 @@ class DragonBaseline(NLPAlgorithm):
 
 
 if __name__ == "__main__":
+    instance = DragonBaseline()
     # 각 adapter, head들 training 먼저 하고
     for job_name in [
         "Task101_Example_sl_bin_clf-fold0",
@@ -714,14 +717,15 @@ if __name__ == "__main__":
         "Task108_Example_sl_ner-fold0",
         "Task109_Example_ml_ner-fold0",
     ]:
-        DragonBaseline(
+        instance.init_super_and_set_workdir(
             input_path=Path(f"test-input/{job_name}"),
             output_path=Path(f"test-output/{job_name}"),
             workdir=Path(f"test-workdir/{job_name}"),
-        ).train_process()
+        )
+        instance.train_process()
     
     # trained adapter들에 대해 fusion layer 학습 (adapter들은 freeze, fusion layer만 학습됨)
-    DragonBaseline().train_fusion()
+    instance.train_fusion()
 
     # 다시 각 task들에 대해 prediction 수행
     for job_name in [
@@ -735,8 +739,9 @@ if __name__ == "__main__":
         "Task108_Example_sl_ner-fold0",
         "Task109_Example_ml_ner-fold0",
     ]:
-        DragonBaseline(
+        instance.init_super_and_set_workdir(
             input_path=Path(f"test-input/{job_name}"),
             output_path=Path(f"test-output/{job_name}"),
             workdir=Path(f"test-workdir/{job_name}"),
-        ).predict_process()
+        )
+        instance.predict_process()
