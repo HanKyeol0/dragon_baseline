@@ -567,9 +567,10 @@ class DragonBaseline(NLPAlgorithm):
 
         for task in self.task_names:
             self.model.load_adapter(task) # Fusion 학습에 포함될 adapter들을 RAM/GPU에 올림
-        adapter_setup = Fuse(tuple(self.task_names))
+        adapter_setup = Fuse(*self.task_names)
         self.model.add_adapter_fusion(adapter_setup) # 조합할 adapter 리스트를 지정
         self.model.load_head(f"{self.head_save_dir}/{data_args.problem_type}") #필요한 head를 loading
+
         self.model.train_adapter_fusion(adapter_setup) # AdapterFusion layer만 학습
         trainer(model_args, data_args, training_args, config, self.model, is_training_fusionlayer=True)
 
@@ -755,6 +756,12 @@ class DragonBaseline(NLPAlgorithm):
 
     def predict(self, *, df: pd.DataFrame) -> pd.DataFrame:
         """Predict the labels for the test data."""
+
+        adapter_setup = Fuse(*self.task_names)
+        self.model.set_active_adapters(adapter_setup)
+
+        self.model.active_head = f"{self.head_save_dir}/{self.task.target.problem_type}"
+
         with torch.no_grad():
             if self.task.target.problem_type == ProblemType.SINGLE_LABEL_NER:
                 return self.predict_ner(df=df)
