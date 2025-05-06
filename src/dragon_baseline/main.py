@@ -510,11 +510,12 @@ class DragonBaseline(NLPAlgorithm):
         self.model.save_adapter(self.adapter_save_dir, data_args.problem_type)
         self.model.save_head(self.head_save_dir, f"{data_args.problem_type}_head")
 
+    # AdapterFusion 레이어만 학습
     def train_fusion(self):
-        for task in self.task_names: # 불필요한
-            self.model.load_adapter(task) # 부분일 수 있음
+        for task in self.task_names:
+            self.model.load_adapter(task) # Fusion 학습에 포함될 adapter들을 RAM/GPU에 올림
         adapter_setup = Fuse(tuple(self.task_names))
-        self.model.add_adapter_fusion(adapter_setup)
+        self.model.add_adapter_fusion(adapter_setup) # 조합할 adapter 리스트를 지정
 
     def predict_ner(self, *, df: pd.DataFrame) -> pd.DataFrame:
         """Predict the labels for the test data.
@@ -705,47 +706,3 @@ class DragonBaseline(NLPAlgorithm):
                 return self.predict_multi_label_ner(df=df)
             else:
                 return self.predict_huggingface(df=df)
-
-
-if __name__ == "__main__":
-    instance = DragonBaseline()
-    # 각 adapter, head들 training 먼저 하고
-    for job_name in [
-        "Task101_Example_sl_bin_clf-fold0",
-        "Task102_Example_sl_mc_clf-fold0",
-        "Task103_Example_mednli-fold0",
-        "Task104_Example_ml_bin_clf-fold0",
-        "Task105_Example_ml_mc_clf-fold0",
-        "Task106_Example_sl_reg-fold0",
-        "Task107_Example_ml_reg-fold0",
-        "Task108_Example_sl_ner-fold0",
-        "Task109_Example_ml_ner-fold0",
-    ]:
-        instance.init_super_and_set_workdir(
-            input_path=Path(f"test-input/{job_name}"),
-            output_path=Path(f"test-output/{job_name}"),
-            workdir=Path(f"test-workdir/{job_name}"),
-        )
-        instance.train_process()
-    
-    # trained adapter들에 대해 fusion layer 학습 (adapter들은 freeze, fusion layer만 학습됨)
-    instance.train_fusion()
-
-    # 다시 각 task들에 대해 prediction 수행
-    for job_name in [
-        "Task101_Example_sl_bin_clf-fold0",
-        "Task102_Example_sl_mc_clf-fold0",
-        "Task103_Example_mednli-fold0",
-        "Task104_Example_ml_bin_clf-fold0",
-        "Task105_Example_ml_mc_clf-fold0",
-        "Task106_Example_sl_reg-fold0",
-        "Task107_Example_ml_reg-fold0",
-        "Task108_Example_sl_ner-fold0",
-        "Task109_Example_ml_ner-fold0",
-    ]:
-        instance.init_super_and_set_workdir(
-            input_path=Path(f"test-input/{job_name}"),
-            output_path=Path(f"test-output/{job_name}"),
-            workdir=Path(f"test-workdir/{job_name}"),
-        )
-        instance.predict_process()
