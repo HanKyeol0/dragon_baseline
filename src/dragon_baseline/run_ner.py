@@ -248,7 +248,7 @@ def get_cli_arguments():
 
     return model_args, data_args, training_args
 
-def run_ner(model_args: DataClass, data_args: DataClass, training_args: DataClass, config, model=None):
+def run_ner(model_args: DataClass, data_args: DataClass, training_args: DataClass, config, model=None, is_training_fusionlayer=False):
     # Sending telemetry. Tracking the example usage helps us better allocate resources to maintain them. The
     # information sent is the one passed as arguments along with your Python/PyTorch versions.
     send_example_telemetry("run_ner", model_args, data_args)
@@ -411,17 +411,18 @@ def run_ner(model_args: DataClass, data_args: DataClass, training_args: DataClas
             truncation_side=data_args.truncation_side,
         )
 
-    # add a type-specific head
-    model.add_type_specific_head(
-        problem_type=data_args.problem_type,
-        num_labels=num_labels,
-        ner=True,
-        layers=1,
-    )
-    # Activate an adapter corresponding to the task type
-    model.set_active_adapters(data_args.problem_type)
-    # Activate the task-specific head
-    model.set_active_adapters(f"{data_args.problem_type}_head")
+    if is_training_fusionlayer==False: # fusion layer 학습 전 adapter를 학습하는 경우
+        # 모델이 안 가지고 있다면 type-specific head 추가
+        model.add_type_specific_head(
+            problem_type=data_args.problem_type,
+            num_labels=num_labels,
+            ner=True,
+            layers=1,
+        )
+        # Activate an adapter corresponding to the task type
+        model.set_active_adapters(data_args.problem_type)
+        # Activate the task-specific head
+        model.set_active_adapters(f"{data_args.problem_type}_head")
     
     if model is None:
         model = AutoModelForTokenClassification.from_pretrained(

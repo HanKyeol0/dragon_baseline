@@ -508,8 +508,8 @@ class DragonBaseline(NLPAlgorithm):
 
         trainer(model_args, data_args, training_args, config, self.model)
 
-        self.model.save_adapter(self.adapter_save_dir, data_args.problem_type)
-        self.model.save_head(self.head_save_dir, f"{data_args.problem_type}_head")
+        self.model.save_adapter(f"{self.adapter_save_dir}/{data_args.problem_type}", data_args.problem_type)
+        self.model.save_head(f"{self.head_save_dir}/{data_args.problem_type}", f"{data_args.problem_type}_head")
 
     # AdapterFusion 레이어만 학습
     def train_fusion(self):
@@ -569,11 +569,9 @@ class DragonBaseline(NLPAlgorithm):
             self.model.load_adapter(task) # Fusion 학습에 포함될 adapter들을 RAM/GPU에 올림
         adapter_setup = Fuse(tuple(self.task_names))
         self.model.add_adapter_fusion(adapter_setup) # 조합할 adapter 리스트를 지정
-        self.model.train_adapter_fusion(adapter_setup)
-        trainer = AdapterTrainer(
-            model=self.model,
-            
-        )
+        self.model.load_head(f"{self.head_save_dir}/{data_args.problem_type}") #필요한 head를 loading
+        self.model.train_adapter_fusion(adapter_setup) # AdapterFusion layer만 학습
+        trainer(model_args, data_args, training_args, config, self.model, is_training_fusionlayer=True)
 
     def predict_ner(self, *, df: pd.DataFrame) -> pd.DataFrame:
         """Predict the labels for the test data.

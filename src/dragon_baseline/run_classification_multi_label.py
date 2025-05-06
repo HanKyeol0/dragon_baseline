@@ -293,7 +293,7 @@ def get_cli_arguments():
 
     return model_args, data_args, training_args
 
-def run_multi_label_classification(model_args: DataClass, data_args: DataClass, training_args: DataClass, config, model=None):
+def run_multi_label_classification(model_args: DataClass, data_args: DataClass, training_args: DataClass, config, model=None, is_training_fusionlayer=False):
 
     # Sending telemetry. Tracking the example usage helps us better allocate resources to maintain them. The
     # information sent is the one passed as arguments along with your Python/PyTorch versions.
@@ -501,26 +501,27 @@ def run_multi_label_classification(model_args: DataClass, data_args: DataClass, 
         truncation_side=data_args.truncation_side,
     )
     
-    if data_args.problem_type == "multi_label_multi_class_classification":
-        model.add_type_specific_head(
-            problem_type=data_args.problem_type,
-            num_labels=num_labels,
-            layers=1,
-        )
-    elif data_args.problem_type == "multi_label_regression":
-        model.add_type_specific_head(
-            problem_type=data_args.problem_type,
-            num_labels=num_labels,  
-            regression=True,
-            layers=1,
-        )
-    else:
-        raise ValueError(f"Unrecognized problem type {data_args.problem_type}")
-    
-    # Activate an adapter corresponding to the task type
-    model.set_active_adapters(data_args.problem_type)
-    # Activate the task-specific head
-    model.set_active_adapters(f"{data_args.problem_type}_head")
+    if is_training_fusionlayer==False: # fusion layer 학습 전 adapter를 학습하는 경우
+        if data_args.problem_type == "multi_label_multi_class_classification":
+            model.add_type_specific_head(
+                problem_type=data_args.problem_type,
+                num_labels=num_labels,
+                layers=1,
+            )
+        elif data_args.problem_type == "multi_label_regression":
+            model.add_type_specific_head(
+                problem_type=data_args.problem_type,
+                num_labels=num_labels,  
+                regression=True,
+                layers=1,
+            )
+        else:
+            raise ValueError(f"Unrecognized problem type {data_args.problem_type}")
+        
+        # Activate an adapter corresponding to the task type
+        model.set_active_adapters(data_args.problem_type)
+        # Activate the task-specific head
+        model.set_active_adapters(f"{data_args.problem_type}_head")
 
     # Padding strategy
     if data_args.pad_to_max_length:
