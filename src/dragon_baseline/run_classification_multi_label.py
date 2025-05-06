@@ -43,6 +43,8 @@ from dragon_baseline.architectures.clf_multi_head import \
 from dragon_baseline.architectures.reg_multi_head import \
     AutoModelForMultiHeadSequenceRegression
 
+from adapters import AdapterTrainer
+
 # Will error if the minimal version of Transformers is not installed. Remove at your own risks.
 check_min_version("4.48.0.dev0")
 
@@ -673,14 +675,24 @@ def run_multi_label_classification(model_args: DataClass, data_args: DataClass, 
         data_collator = None
 
     # Initialize our Trainer
-    trainer = Trainer(
+    # trainer = Trainer(
+    #     model=model,
+    #     args=training_args,
+    #     train_dataset=train_dataset if training_args.do_train else None,
+    #     eval_dataset=eval_dataset if training_args.do_eval else None,
+    #     compute_metrics=compute_metrics,
+    #     processing_class=tokenizer,
+    #     data_collator=data_collator,
+    # )
+
+    trainer = AdapterTrainer(
         model=model,
         args=training_args,
         train_dataset=train_dataset if training_args.do_train else None,
         eval_dataset=eval_dataset if training_args.do_eval else None,
-        compute_metrics=compute_metrics,
-        processing_class=tokenizer,
+        tokenizer=tokenizer,
         data_collator=data_collator,
+        compute_metrics=compute_metrics,
     )
 
     # Training
@@ -763,7 +775,6 @@ def main():
 def _mp_fn(index):
     # For xla_spawn (TPUs)
     main()
-
 
 if __name__ == "__main__":
     main()

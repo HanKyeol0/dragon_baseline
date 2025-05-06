@@ -511,7 +511,7 @@ class DragonBaseline(NLPAlgorithm):
 
     def train_fusion(self):
         for task in self.task_names: # 불필요한
-            self.model.load_adapters(task) # 부분일 수 있음
+            self.model.load_adapter(task) # 부분일 수 있음
         adapter_setup = Fuse(tuple(self.task_names))
         self.model.add_adapter_fusion(adapter_setup)
 

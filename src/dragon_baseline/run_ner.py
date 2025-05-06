@@ -42,6 +42,8 @@ from transformers.trainer_utils import get_last_checkpoint
 from transformers.utils import check_min_version, send_example_telemetry
 from transformers.utils.versions import require_version
 
+from adapters import AdapterTrainer
+
 # Will error if the minimal version of Transformers is not installed. Remove at your own risks.
 check_min_version("4.48.0.dev0")
 
@@ -684,12 +686,22 @@ def run_ner(model_args: DataClass, data_args: DataClass, training_args: DataClas
             }
 
     # Initialize our Trainer
-    trainer = Trainer(
+    # trainer = Trainer(
+    #     model=model,
+    #     args=training_args,
+    #     train_dataset=train_dataset if training_args.do_train else None,
+    #     eval_dataset=eval_dataset if training_args.do_eval else None,
+    #     processing_class=tokenizer,
+    #     data_collator=data_collator,
+    #     compute_metrics=compute_metrics,
+    # )
+
+    trainer = AdapterTrainer(
         model=model,
         args=training_args,
         train_dataset=train_dataset if training_args.do_train else None,
         eval_dataset=eval_dataset if training_args.do_eval else None,
-        processing_class=tokenizer,
+        tokenizer=tokenizer,
         data_collator=data_collator,
         compute_metrics=compute_metrics,
     )
