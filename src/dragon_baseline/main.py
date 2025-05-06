@@ -193,6 +193,7 @@ class DragonBaseline(NLPAlgorithm):
         - `predict`: predict the labels for the test data
         """
 
+        super().__init__(**kwargs)
         # default training settings
         self.model = None
         self.model_name = model_name
