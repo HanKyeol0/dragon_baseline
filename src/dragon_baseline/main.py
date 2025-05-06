@@ -41,6 +41,7 @@ from dragon_baseline.run_classification_multi_label import (
     run_multi_label_classification)
 from dragon_baseline.run_ner import get_ner_argument_parser, run_ner
 from adapters.composition import Fuse
+from adapters import AdapterTrainer
 
 __all__ = [
     # expose the algorithm classes
@@ -510,10 +511,67 @@ class DragonBaseline(NLPAlgorithm):
         self.model.save_head(self.head_save_dir, f"{data_args.problem_type}_head")
 
     def train_fusion(self):
+        for path in [
+            self.nlp_dataset_train_preprocessed_path,
+            self.nlp_dataset_val_preprocessed_path,
+            self.nlp_dataset_test_preprocessed_path,
+        ]:
+            path.parent.mkdir(parents=True, exist_ok=True)
+        self.df_train.to_json(self.nlp_dataset_train_preprocessed_path, orient="records")
+        self.df_val.to_json(self.nlp_dataset_val_preprocessed_path, orient="records")
+        self.df_test.to_json(self.nlp_dataset_test_preprocessed_path, orient="records")
+
+        # set a trainer that suits the task type
+        if self.task.target.problem_type in [ProblemType.SINGLE_LABEL_NER, ProblemType.MULTI_LABEL_NER]:
+            trainer_name = "ner"
+            parser = get_ner_argument_parser()
+            trainer = run_ner
+        elif self.task.target.problem_type in [ProblemType.MULTI_LABEL_REGRESSION, ProblemType.MULTI_LABEL_MULTI_CLASS_CLASSIFICATION]:
+            trainer_name = "multi_label_classification"
+            parser = get_multi_label_classification_argument_parser()
+            trainer = run_multi_label_classification
+        else:
+            trainer_name = "classification"
+            parser = get_classification_argument_parser()
+            trainer = run_classification
+
+        config = {
+            "do_train": True,
+            "learning_rate": self.learning_rate,
+            "model_name_or_path": self.model_name,
+            "ignore_mismatched_sizes": True,
+            "num_train_epochs": self.num_train_epochs,
+            "warmup_ratio": self.warmup_ratio,
+            "max_seq_length": self.max_seq_length,
+            "truncation_side": self.task.recommended_truncation_side,
+            "load_best_model_at_end": self.load_best_model_at_end,
+            "save_strategy": "epoch",
+            "eval_strategy": "epoch",
+            "per_device_train_batch_size": self.per_device_train_batch_size,
+            "gradient_accumulation_steps": self.gradient_accumulation_steps,
+            "gradient_checkpointing": self.gradient_checkpointing,
+            "train_file": self.nlp_dataset_train_preprocessed_path,
+            "validation_file": self.nlp_dataset_val_preprocessed_path,
+            "output_dir": self.model_save_dir,
+            "overwrite_output_dir": True,
+            "save_total_limit": 2,
+            "seed": self.task.jobid,
+            "report_to": "none",
+            "text_column_name" + ("s" if not "ner" in trainer_name else ""): self.task.input_name,
+            "remove_columns": "uid",
+        }
+
+        model_args, data_args, training_args = parser.parse_dict(config)
+
         for task in self.task_names: # 불필요한
             self.model.load_adapter(task) # 부분일 수 있음
         adapter_setup = Fuse(tuple(self.task_names))
         self.model.add_adapter_fusion(adapter_setup)
+        self.model.train_adapter_fusion(adapter_setup)
+        trainer = AdapterTrainer(
+            model=self.model,
+            
+        )
 
     def predict_ner(self, *, df: pd.DataFrame) -> pd.DataFrame:
         """Predict the labels for the test data.
