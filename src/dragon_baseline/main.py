@@ -567,10 +567,10 @@ class DragonBaseline(NLPAlgorithm):
 
         for task in self.task_names:
             self.model.load_adapter(task) # Fusion 학습에 포함될 adapter들을 RAM/GPU에 올림
-        adapter_setup = Fuse(tuple(self.task_names))
-        self.model.add_adapter_fusion(adapter_setup) # 조합할 adapter 리스트를 지정
+        self.adapter_setup = Fuse(tuple(self.task_names))
+        self.model.add_adapter_fusion(self.adapter_setup) # 조합할 adapter 리스트를 지정
         self.model.load_head(f"{self.head_save_dir}/{data_args.problem_type}", load_as=f"{data_args.problem_type}_head") #필요한 head를 loading
-        self.model.train_adapter_fusion(adapter_setup) # AdapterFusion layer만 학습
+        self.model.train_adapter_fusion(self.adapter_setup) # AdapterFusion layer만 학습
         trainer(model_args, data_args, training_args, config, self.model, is_training_fusionlayer=True)
         self.model.delete_head(f"{data_args.problem_type}_head") # fusion layer 학습 후 모델에서 head 삭제
 
@@ -588,9 +588,8 @@ class DragonBaseline(NLPAlgorithm):
         """
         tokenizer = AutoTokenizer.from_pretrained(self.model_save_dir, truncation_side=self.task.recommended_truncation_side)
         tokenizer.model_max_length = self.max_seq_length  # set the maximum sequence length, if not already set
-        model = AutoModelForTokenClassification.from_pretrained(self.model_save_dir)
         classifier = TokenClassificationPipeline(
-            model=model,
+            model=self.model,
             tokenizer=tokenizer,
             stride=tokenizer.model_max_length // 2,
             aggregation_strategy="first",
@@ -668,12 +667,13 @@ class DragonBaseline(NLPAlgorithm):
         # load the model and tokenizer
         tokenizer = AutoTokenizer.from_pretrained(self.model_save_dir, truncation_side=self.task.recommended_truncation_side)
         tokenizer.model_max_length = self.max_seq_length  # set the maximum sequence length, if not already set
-        if self.task.target.problem_type == ProblemType.MULTI_LABEL_REGRESSION:
-            model = AutoModelForMultiHeadSequenceRegression.from_pretrained(self.model_save_dir).to(self.device)
-        elif self.task.target.problem_type == ProblemType.MULTI_LABEL_MULTI_CLASS_CLASSIFICATION:
-            model = AutoModelForMultiHeadSequenceClassification.from_pretrained(self.model_save_dir).to(self.device)
-        else:
-            model = AutoModelForSequenceClassification.from_pretrained(self.model_save_dir).to(self.device)
+        model = self.model
+        # if self.task.target.problem_type == ProblemType.MULTI_LABEL_REGRESSION:
+        #     model = AutoModelForMultiHeadSequenceRegression.from_pretrained(self.model_save_dir).to(self.device)
+        # elif self.task.target.problem_type == ProblemType.MULTI_LABEL_MULTI_CLASS_CLASSIFICATION:
+        #     model = AutoModelForMultiHeadSequenceClassification.from_pretrained(self.model_save_dir).to(self.device)
+        # else:
+        #     model = AutoModelForSequenceClassification.from_pretrained(self.model_save_dir).to(self.device)
 
         # predict
         results = []
@@ -756,6 +756,8 @@ class DragonBaseline(NLPAlgorithm):
 
     def predict(self, *, df: pd.DataFrame) -> pd.DataFrame:
         """Predict the labels for the test data."""
+        self.model.set_active_adapters(self.adapter_setup)
+        self.model.active_head = f"{self.task.target.problem_type}_head"
         with torch.no_grad():
             if self.task.target.problem_type == ProblemType.SINGLE_LABEL_NER:
                 return self.predict_ner(df=df)
@@ -763,3 +765,4 @@ class DragonBaseline(NLPAlgorithm):
                 return self.predict_multi_label_ner(df=df)
             else:
                 return self.predict_huggingface(df=df)
+        self.model.delete_head(f"{self.task.target.problem_type}_head")
