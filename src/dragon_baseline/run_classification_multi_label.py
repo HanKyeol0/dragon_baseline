@@ -522,6 +522,8 @@ def run_multi_label_classification(model_args: DataClass, data_args: DataClass, 
         model.set_active_adapters(data_args.problem_type)
         # Activate the task-specific head
         model.set_active_adapters(f"{data_args.problem_type}_head")
+        # Enable adapter training
+        model.train_adapter(data_args.problem_type)
 
     # Padding strategy
     if data_args.pad_to_max_length:

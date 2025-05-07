@@ -423,6 +423,8 @@ def run_ner(model_args: DataClass, data_args: DataClass, training_args: DataClas
         model.set_active_adapters(data_args.problem_type)
         # Activate the task-specific head
         model.set_active_adapters(f"{data_args.problem_type}_head")
+        # Enable adapter training
+        model.train_adapter(data_args.problem_type)
     
     if model is None:
         model = AutoModelForTokenClassification.from_pretrained(
