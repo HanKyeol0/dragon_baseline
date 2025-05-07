@@ -487,13 +487,13 @@ def run_classification(model_args: DataClass, data_args: DataClass, training_arg
     # download model & vocab.
 
     if is_regression:
-        config.problem_type = "regression"
+        config["problem_type"] = "regression"
         logger.info("setting problem type to regression")
     elif is_multi_label:
-        config.problem_type = "multi_label_classification"
+        config["problem_type"] = "multi_label_classification"
         logger.info("setting problem type to multi label classification")
     else:
-        config.problem_type = "single_label_classification"
+        config["problem_type"] = "single_label_classification"
         logger.info("setting problem type to single label classification")
 
     tokenizer = AutoTokenizer.from_pretrained(
@@ -515,11 +515,11 @@ def run_classification(model_args: DataClass, data_args: DataClass, training_arg
             layers=1,
         )
         # Activate an adapter corresponding to the task type
-        model.set_active_adapters(data_args.problem_type)
+        model.set_task_adapter(data_args.problem_type)
         # Activate the task-specific head
         model.active_head = f"{data_args.problem_type}_head"
         # Enable adapter training
-        model.train_adapter(data_args.problem_type)
+        model.adapter_training(data_args.problem_type)
     
     if model is None:
         model = AutoModelForSequenceClassification.from_pretrained(
@@ -696,7 +696,7 @@ def run_classification(model_args: DataClass, data_args: DataClass, training_arg
     # )
 
     trainer = AdapterTrainer(
-        model=model,
+        model=model.model,
         args=training_args,
         train_dataset=train_dataset if training_args.do_train else None,
         eval_dataset=eval_dataset if training_args.do_eval else None,

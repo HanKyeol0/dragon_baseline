@@ -213,14 +213,14 @@ class DragonBaseline(NLPAlgorithm):
         # keep track of the common prefix of the reports, to remove it
         self.common_prefix = None
 
-        self.task_names = [ProblemType.SINGLE_LABEL_REGRESSION,
-                        ProblemType.MULTI_LABEL_REGRESSION,
-                        ProblemType.SINGLE_LABEL_BINARY_CLASSIFICATION,
-                        ProblemType.MULTI_LABEL_BINARY_CLASSIFICATION,
-                        ProblemType.SINGLE_LABEL_MULTI_CLASS_CLASSIFICATION,
-                        ProblemType.MULTI_LABEL_MULTI_CLASS_CLASSIFICATION,
-                        ProblemType.SINGLE_LABEL_NER,
-                        ProblemType.MULTI_LABEL_NER]
+        self.task_names = ["single_label_regression",
+                        "multi_label_regression",
+                        "single_label_binary_classification",
+                        "multi_label_binary_classification",
+                        "single_label_multi_class_classification",
+                        "multi_label_multi_class_classification",
+                        "named_entity_recognition",
+                        "multi_label_named_entity_recognition"]
     
     def init_super_and_set_workdir(self, input_path: Union[Path, str] = Path("/input"), output_path: Union[Path, str] = Path("/output"), workdir: Union[Path, str] = Path("/opt/app")):
         input_path = Path(input_path)
@@ -467,6 +467,7 @@ class DragonBaseline(NLPAlgorithm):
             "report_to": "none",
             "text_column_name" + ("s" if not "ner" in trainer_name else ""): self.task.input_name,
             "remove_columns": "uid",
+            # "problem_type": self.task.target.problem_type,
         }
         if self.task.target.problem_type in [
             ProblemType.MULTI_LABEL_REGRESSION,
@@ -487,6 +488,7 @@ class DragonBaseline(NLPAlgorithm):
             config["fp16"] = True
 
         model_args, data_args, training_args = parser.parse_dict(config)
+        data_args.problem_type = self.task.target.problem_type.value
 
         model_config = AutoConfig.from_pretrained(
             model_args.config_name if model_args.config_name else model_args.model_name_or_path,

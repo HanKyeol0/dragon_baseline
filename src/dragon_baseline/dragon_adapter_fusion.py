@@ -19,8 +19,8 @@ class MultiOutputHead(PredictionHead):
 
 class DragonAdapterFusionModel:
     def __init__(self, model_args, model_config, adapter_names: list, adapter_config: str = "pfeiffer", device="cuda"):
-        self.model_name = model_args.model_name_or_path,
-        self.model_config = model_config
+        self.model_name = model_args.model_name_or_path
+        self.config = model_config
         self.adapter_names = adapter_names
         self.adapter_config = adapter_config
         self.device = device
@@ -29,7 +29,7 @@ class DragonAdapterFusionModel:
         self.model = AutoAdapterModel.from_pretrained(
             self.model_name,
             from_tf=bool(".ckpt" in model_args.model_name_or_path),
-            config=self.model_config,
+            config=self.config,
             cache_dir=model_args.cache_dir,
             revision=model_args.model_revision,
             token=model_args.token,
@@ -49,19 +49,22 @@ class DragonAdapterFusionModel:
                 self.model.add_adapter(adapter_name, config=self.adapter_config)
                 self.model.add_classification_head(adapter_name)
     
+    def adapter_training(self, adapter_name):
+        self.model.train_adapter(adapter_name)
+    
     def add_type_specific_head(self, problem_type: str, num_labels = None, regression = False, ner=False, layers = 1):
         if f"{problem_type}_head" in self.model.heads:
             print(f"Head for {problem_type} already exists.")
             return
         else:
             if regression:
-                self.model.add_classification_head(f"{problem_type}_head", num_labels=num_labels, regression=True, layers=layers)
+                self.model.add_regression_head(f"{problem_type}_head", num_labels=num_labels, layers=layers)
                 print(f"Added regression head for {problem_type}.")
             elif ner:
                 self.model.add_token_classification_head(f"{problem_type}_head", num_labels=num_labels, layers=layers)
                 print(f"Added NER head for {problem_type}.")
             else: # classification
-                self.model.add_classification_head(f"{problem_type}_head", num_labels=num_labels, regression=False, layers=layers)
+                self.model.add_classification_head(f"{problem_type}_head", num_labels=num_labels, layers=layers)
                 print(f"Added classification head for {problem_type}.")
         # Adapter와 구분하기 위해 head 이름에는 _head를 붙임
 

@@ -58,7 +58,6 @@ def string_to_ProblemType(type_str):
 
     raise ValueError(f"{type_str} does not correspond to a valid ProblemType")
 
-
 @dataclass
 class LabelDetails:
     """
