@@ -567,7 +567,7 @@ class DragonBaseline(NLPAlgorithm):
 
         for task in self.task_names:
             self.model.load_adapter(task) # Fusion 학습에 포함될 adapter들을 RAM/GPU에 올림
-        self.adapter_setup = Fuse(tuple(self.task_names))
+        self.adapter_setup = Fuse(*self.task_names)
         self.model.add_adapter_fusion(self.adapter_setup) # 조합할 adapter 리스트를 지정
         self.model.load_head(f"{self.head_save_dir}/{data_args.problem_type}", load_as=f"{data_args.problem_type}_head") #필요한 head를 loading
         self.model.train_adapter_fusion(self.adapter_setup) # AdapterFusion layer만 학습
