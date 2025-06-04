@@ -512,7 +512,7 @@ class DragonBaseline(NLPAlgorithm):
 
         self.model.save_adapter(f"{self.adapter_save_dir}/{data_args.problem_type}", data_args.problem_type)
         self.model.save_head(f"{self.head_save_dir}/{data_args.problem_type}", f"{data_args.problem_type}_head")
-
+    
     # AdapterFusion 레이어만 학습
     def train_fusion(self):
         for path in [
@@ -768,3 +768,106 @@ class DragonBaseline(NLPAlgorithm):
             else:
                 return self.predict_huggingface(df=df)
         self.model.delete_head(f"{self.task.target.problem_type}_head")
+    
+    def train_lora(): 
+        
+        """Train the model."""
+        # save the preprocessed data for training through command line interface of the HuggingFace library
+        for path in [
+            self.nlp_dataset_train_preprocessed_path,
+            self.nlp_dataset_val_preprocessed_path,
+            self.nlp_dataset_test_preprocessed_path,
+        ]:
+            path.parent.mkdir(parents=True, exist_ok=True)
+        self.df_train.to_json(self.nlp_dataset_train_preprocessed_path, orient="records")
+        self.df_val.to_json(self.nlp_dataset_val_preprocessed_path, orient="records")
+        self.df_test.to_json(self.nlp_dataset_test_preprocessed_path, orient="records")
+
+        # load the tokenizer
+        tokenizer = AutoTokenizer.from_pretrained(self.model_name, truncation_side=self.task.recommended_truncation_side)
+        tokenizer.model_max_length = self.max_seq_length  # set the maximum sequence length, if not already set
+
+        # set a trainer that suits the task type
+        if self.task.target.problem_type in [ProblemType.SINGLE_LABEL_NER, ProblemType.MULTI_LABEL_NER]:
+            trainer_name = "ner"
+            parser = get_ner_argument_parser()
+            trainer = run_ner
+        elif self.task.target.problem_type in [ProblemType.MULTI_LABEL_REGRESSION, ProblemType.MULTI_LABEL_MULTI_CLASS_CLASSIFICATION]:
+            trainer_name = "multi_label_classification"
+            parser = get_multi_label_classification_argument_parser()
+            trainer = run_multi_label_classification
+        else:
+            trainer_name = "classification"
+            parser = get_classification_argument_parser()
+            trainer = run_classification
+
+        config = {
+            "do_train": True,
+            "learning_rate": self.learning_rate,
+            "model_name_or_path": self.model_name,
+            "ignore_mismatched_sizes": True,
+            "num_train_epochs": self.num_train_epochs,
+            "warmup_ratio": self.warmup_ratio,
+            "max_seq_length": self.max_seq_length,
+            "truncation_side": self.task.recommended_truncation_side,
+            "load_best_model_at_end": self.load_best_model_at_end,
+            "save_strategy": "epoch",
+            "eval_strategy": "epoch",
+            "per_device_train_batch_size": self.per_device_train_batch_size,
+            "gradient_accumulation_steps": self.gradient_accumulation_steps,
+            "gradient_checkpointing": self.gradient_checkpointing,
+            "train_file": self.nlp_dataset_train_preprocessed_path,
+            "validation_file": self.nlp_dataset_val_preprocessed_path,
+            "output_dir": self.model_save_dir,
+            "overwrite_output_dir": True,
+            "save_total_limit": 2,
+            "seed": self.task.jobid,
+            "report_to": "none",
+            "text_column_name" + ("s" if not "ner" in trainer_name else ""): self.task.input_name,
+            "remove_columns": "uid",
+            # "problem_type": self.task.target.problem_type,
+        }
+        if self.task.target.problem_type in [
+            ProblemType.MULTI_LABEL_REGRESSION,
+            ProblemType.MULTI_LABEL_MULTI_CLASS_CLASSIFICATION,
+        ]:
+            label_names = [col for col in self.df_train.columns if col.startswith(f"{self.task.target.label_name}_")]
+            config["label_column_names"] = ",".join(label_names)
+        else:
+            config["label_column_name"] = self.task.target.label_name
+        if self.task.target.problem_type in [ProblemType.SINGLE_LABEL_NER, ProblemType.MULTI_LABEL_NER]:
+            if self.create_strided_training_examples:
+                config["create_strided_training_examples"] = True
+        else:
+            config["text_column_delimiter"] = tokenizer.sep_token
+        if self.metric_for_best_model is not None:
+            config["metric_for_best_model"] = self.metric_for_best_model
+        if self.fp16:
+            config["fp16"] = True
+
+        model_args, data_args, training_args = parser.parse_dict(config)
+        data_args.problem_type = self.task.target.problem_type.value
+
+        model_config = AutoConfig.from_pretrained(
+            model_args.config_name if model_args.config_name else model_args.model_name_or_path,
+            cache_dir=model_args.cache_dir,
+            revision=model_args.model_revision,
+            token=model_args.token,
+            trust_remote_code=model_args.trust_remote_code,
+        )
+        
+        if self.model == None:
+            self.model = DragonAdapterFusionModel(
+                model_args = model_args,
+                model_config = model_config,
+                adapter_names = self.task_names,
+                adapter_config = "pfeiffer",
+                device = self.device,
+            )
+            self.model.load_or_add_adapters()
+
+        trainer(model_args, data_args, training_args, config, self.model)
+
+        self.model.save_adapter(f"{self.adapter_save_dir}/{data_args.problem_type}", data_args.problem_type)
+        self.model.save_head(f"{self.head_save_dir}/{data_args.problem_type}", f"{data_args.problem_type}_head")
+       

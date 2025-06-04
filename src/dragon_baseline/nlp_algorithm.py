@@ -194,6 +194,13 @@ class NLPAlgorithm:
         self.analyze()
         self.preprocess()
         self.train()
+        
+    def train_process_lora(self):
+        self.load()
+        self.validate()
+        self.analyze()
+        self.preprocess()
+        self.train_lora()
     
     def predict_process(self):
         predictions = self.predict(df=self.df_test)
